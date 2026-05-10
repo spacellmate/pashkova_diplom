@@ -783,24 +783,24 @@ footer{background:#111110;color:rgba(255,255,255,.45);padding-block:var(--space-
 
     </div>
     <div class="final-form" id="form-wrap">
-      <form id="chef-form" novalidate>
+      <form id="chef-form" action="/submit" method="post">
         <div id="form-status" style="display:none;margin-bottom:var(--space-4);padding:.85rem 1rem;border-radius:var(--radius-md);font-size:.9rem;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:#fff"></div>
         <div class="form-grid">
           <div class="form-field">
             <label for="f-name">Имя</label>
-            <input id="f-name" type="text" placeholder="Ваше имя" required>
+            <input id="f-name" name="f-name" type="text" placeholder="Ваше имя" required>
           </div>
           <div class="form-field">
             <label for="f-phone">Телефон</label>
-            <input id="f-phone" type="tel" placeholder="+7 (___) ___-__-__" required>
+            <input id="f-phone" name="f-phone" type="tel" placeholder="+7 (___) ___-__-__" required>
           </div>
           <div class="form-field form-wide">
             <label for="f-spec">Ваша специализация</label>
-            <input id="f-spec" type="text" placeholder="Борщ, торты, пп-рационы, паста…">
+            <input id="f-spec" name="f-spec" type="text" placeholder="Борщ, торты, пп-рационы, паста…">
           </div>
           <div class="form-field">
             <label for="f-district">Ваш город</label>
-            <select id="f-district">
+            <select id="f-district" name="f-district">
               <option value="">Выберите город</option>
               <option>Москва</option>
               <option>Санкт-Петербург</option>
@@ -826,7 +826,7 @@ footer{background:#111110;color:rgba(255,255,255,.45);padding-block:var(--space-
           </div>
           <div class="form-field">
             <label for="f-format">Желаемая занятость</label>
-            <select id="f-format">
+            <select id="f-format" name="f-format">
               <option value="">Выберите формат</option>
               <option>Вечерняя подработка</option>
               <option>Только выходные</option>
@@ -838,7 +838,7 @@ footer{background:#111110;color:rgba(255,255,255,.45);padding-block:var(--space-
         <div class="form-checkboxes">
           <div class="form-checkboxes-title">Согласие</div>
           <label class="check-item" style="align-items:flex-start;gap:.7rem;line-height:1.5;color:rgba(255,255,255,.82)">
-            <input id="f-consent" type="checkbox" required style="margin-top:.2rem">
+            <input id="f-consent" name="f-consent" type="checkbox" required style="margin-top:.2rem">
             <span>Нажимая кнопку отправки, вы даёте согласие на обработку персональных данных в целях рассмотрения заявки и обратной связи.</span>
           </label>
         </div>
@@ -926,63 +926,25 @@ async function loadVisits(){
   }catch(err){}
 }
 loadVisits();
-form.addEventListener('submit',async function(e){
-  e.preventDefault();
+form.addEventListener('submit',function(e){
   statusBox.style.display='none';
   const consent=document.getElementById('f-consent');
+  const name=document.getElementById('f-name').value.trim();
+  const phone=document.getElementById('f-phone').value.trim();
   if(!consent.checked){
+    e.preventDefault();
     showStatus('Чтобы отправить анкету, нужно дать согласие на обработку персональных данных.');
     consent.focus();
     return;
   }
-  const payload={
-    name:document.getElementById('f-name').value.trim(),
-    phone:document.getElementById('f-phone').value.trim(),
-    specialization:document.getElementById('f-spec').value.trim(),
-    district:document.getElementById('f-district').value,
-    employment:document.getElementById('f-format').value,
-    consent:consent.checked
-  };
-  if(!payload.name || !payload.phone){
+  if(!name || !phone){
+    e.preventDefault();
     showStatus('Заполните имя и телефон.');
     return;
   }
   const submitBtn=form.querySelector('.form-submit');
-  const oldText=submitBtn.textContent;
   submitBtn.disabled=true;
   submitBtn.textContent='Отправляем...';
-  try{
-    const res=await fetch('/api/submit',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify(payload)
-    });
-    const contentType=res.headers.get('content-type') || '';
-    let data=null;
-    if(contentType.includes('application/json')){
-      data=await res.json();
-    }else{
-      const raw=await res.text();
-      if(res.ok){
-        form.style.display='none';
-        successMsg.style.display='block';
-        return;
-      }
-      throw new Error(raw && raw.trim().startsWith('<')
-        ? 'Сервер вернул HTML вместо JSON. Значит бэкенд /api/submit работает не так, как ожидает форма.'
-        : 'Не удалось отправить заявку');
-    }
-    if(!res.ok || !data || data.ok === false){
-      throw new Error((data && data.error) || 'Не удалось отправить заявку');
-    }
-    form.style.display='none';
-    successMsg.style.display='block';
-  }catch(err){
-    showStatus(err.message || 'Ошибка отправки. Попробуйте ещё раз.');
-  }finally{
-    submitBtn.disabled=false;
-    submitBtn.textContent=oldText;
-  }
 });
 
 /* ─── SMOOTH SCROLL ─── */
