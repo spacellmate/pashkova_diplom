@@ -7,15 +7,9 @@ import os
 
 BASE_DIR = Path(__file__).resolve().parent
 TEMPLATES_DIR = BASE_DIR / "templates"
-
-# Для Render потом можно задать DB_PATH=/var/data/data.db
 DB_PATH = Path(os.getenv("DB_PATH", str(BASE_DIR / "data.db")))
-
 INITIAL_VISITS = 57116
 INITIAL_FORMS = 2702
-
-# Для просмотра заявок в браузере:
-# https://your-site.onrender.com/admin/leads?token=ТВОЙ_ТОКЕН
 ADMIN_TOKEN = os.getenv("ADMIN_TOKEN", "changeme-admin-token")
 
 app = Flask(__name__, template_folder=str(TEMPLATES_DIR))
@@ -33,7 +27,7 @@ def init_db():
         conn.execute("""
             CREATE TABLE IF NOT EXISTS leads (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                created_at TEXT NOT NULL,
+                created_at TEXT,
                 name TEXT NOT NULL,
                 phone TEXT NOT NULL,
                 specialization TEXT,
@@ -133,7 +127,6 @@ def admin_leads():
         rows = conn.execute("""
             SELECT
                 id,
-                created_at,
                 name,
                 phone,
                 specialization,
@@ -148,7 +141,6 @@ def admin_leads():
         f"""
         <tr>
           <td>{esc(row["id"])}</td>
-          <td>{esc(row["created_at"])}</td>
           <td>{esc(row["name"])}</td>
           <td>{esc(row["phone"])}</td>
           <td>{esc(row["specialization"])}</td>
@@ -244,7 +236,6 @@ def admin_leads():
             <thead>
               <tr>
                 <th>ID</th>
-                <th>Дата</th>
                 <th>Имя</th>
                 <th>Телефон</th>
                 <th>Специализация</th>
@@ -254,7 +245,7 @@ def admin_leads():
               </tr>
             </thead>
             <tbody>
-              {rows_html or '<tr><td colspan="8">Записей пока нет</td></tr>'}
+              {rows_html or '<tr><td colspan="7">Записей пока нет</td></tr>'}
             </tbody>
           </table>
         </div>
