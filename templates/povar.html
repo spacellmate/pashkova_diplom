@@ -303,6 +303,54 @@ footer{background:#111110;color:rgba(255,255,255,.45);padding-block:var(--space-
       color: rgba(255, 255, 255, 0.68);
     }
 
+  
+
+    .site-stats-section {
+      padding: 18px 0 52px;
+      background: #faf9f6;
+    }
+
+    .site-stats-wrap {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 0 16px;
+    }
+
+    .site-stats-section .stats-box {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    @media (max-width: 640px) {
+      .site-stats-section .stats-box {
+        grid-template-columns: minmax(0, 1fr);
+      }
+    }
+
+    .site-stats-section .stat-card {
+      background: #ffffff;
+      border: 1px solid rgba(26, 26, 24, 0.08);
+      border-radius: 16px;
+      padding: 16px 18px;
+      box-shadow: 0 10px 24px rgba(17, 24, 39, 0.06);
+    }
+
+    .site-stats-section .stat-value {
+      font-size: 32px;
+      line-height: 1;
+      font-weight: 800;
+      color: #1a1a18;
+      margin-bottom: 8px;
+    }
+
+    .site-stats-section .stat-note {
+      font-size: 14px;
+      line-height: 1.45;
+      color: #6b6a66;
+      max-width: none;
+    }
+
   </style>
 </head>
 <body>
@@ -732,19 +780,6 @@ footer{background:#111110;color:rgba(255,255,255,.45);padding-block:var(--space-
       <h2 class="h2" style="color:#fff;margin-top:var(--space-3)">Готовы превратить готовку<br>в стабильный доход?</h2>
       <p class="sub">Оставьте заявку — расскажем, сколько вы можете зарабатывать при вашем графике и специализации, и поможем сделать первые шаги.</p>
 
-      <div class="stats-box">
-        <div class="stat-card">
-          <div class="stat-label">Посещения сайта</div>
-          <div class="stat-value">{{ visit_count }}</div>
-          <div class="stat-note">Сколько раз заходили, чтобы узнать условия.</div>
-        </div>
-
-        <div class="stat-card">
-          <div class="stat-label">Отправлено анкет</div>
-          <div class="stat-value">{{ form_count }}</div>
-          <div class="stat-note">Заявки от поваров, которые уже готовы подключиться.</div>
-        </div>
-      </div>
 
     </div>
     <div class="final-form" id="form-wrap">
@@ -799,10 +834,27 @@ footer{background:#111110;color:rgba(255,255,255,.45);padding-block:var(--space-
         <button type="submit" class="form-submit">Получить расчёт дохода и стать поваром →</button>
         <p class="form-note">Заявка бесплатна и ни к чему не обязывает. Менеджер свяжется в течение 1–2 рабочих дней.</p>
       </form>
+
       <div class="success-msg" id="success-msg">
         <div style="font-size:3rem;margin-bottom:var(--space-4)">🎉</div>
         <h3 class="h3">Заявка принята!</h3>
         <p>Менеджер свяжется с вами в течение 1–2 рабочих дней и расскажет, сколько вы можете зарабатывать. Проверьте телефон.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<section class="site-stats-section">
+  <div class="site-stats-wrap">
+    <div class="stats-box">
+      <div class="stat-card">
+        <div class="stat-value">{{ visit_count }}</div>
+        <div class="stat-note">человек знают нас</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value">{{ form_count }}</div>
+        <div class="stat-note">поваров уже с нами</div>
       </div>
     </div>
   </div>
