@@ -223,7 +223,7 @@ def admin_leads():
         <div class="top">
           <div>
             <h1 style="margin:0 0 6px;">Все заявки</h1>
-            <div style="color:#6b6a66;">База: {esc(DB_PATH)}</div>
+            <div style="color:#6b6a66;">База: {esc(str(DB_PATH))}</div>
           </div>
           <div class="stats">
             <div class="chip">Записей в БД: <strong>{len(rows)}</strong></div>
