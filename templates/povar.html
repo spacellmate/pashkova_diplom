@@ -799,18 +799,29 @@ footer{background:#111110;color:rgba(255,255,255,.45);padding-block:var(--space-
             <input id="f-spec" type="text" placeholder="Борщ, торты, пп-рационы, паста…">
           </div>
           <div class="form-field">
-            <label for="f-district">Район Москвы</label>
+            <label for="f-district">Ваш город</label>
             <select id="f-district">
-              <option value="">Выберите район</option>
-              <option>Центральный</option>
-              <option>Северный</option>
-              <option>Северо-Восточный</option>
-              <option>Восточный</option>
-              <option>Юго-Восточный</option>
-              <option>Южный</option>
-              <option>Юго-Западный</option>
-              <option>Западный</option>
-              <option>Северо-Западный</option>
+              <option value="">Выберите город</option>
+              <option>Москва</option>
+              <option>Санкт-Петербург</option>
+              <option>Казань</option>
+              <option>Екатеринбург</option>
+              <option>Новосибирск</option>
+              <option>Нижний Новгород</option>
+              <option>Краснодар</option>
+              <option>Ростов-на-Дону</option>
+              <option>Самара</option>
+              <option>Уфа</option>
+              <option>Челябинск</option>
+              <option>Пермь</option>
+              <option>Воронеж</option>
+              <option>Волгоград</option>
+              <option>Красноярск</option>
+              <option>Омск</option>
+              <option>Тюмень</option>
+              <option>Сочи</option>
+              <option>Владивосток</option>
+              <option>Другое</option>
             </select>
           </div>
           <div class="form-field">
@@ -946,8 +957,22 @@ form.addEventListener('submit',async function(e){
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify(payload)
     });
-    const data=await res.json();
-    if(!res.ok || !data.ok){
+    const contentType=res.headers.get('content-type') || '';
+    let data=null;
+    if(contentType.includes('application/json')){
+      data=await res.json();
+    }else{
+      const raw=await res.text();
+      if(res.ok){
+        form.style.display='none';
+        successMsg.style.display='block';
+        return;
+      }
+      throw new Error(raw && raw.trim().startsWith('<')
+        ? 'Сервер вернул HTML вместо JSON. Значит бэкенд /api/submit работает не так, как ожидает форма.'
+        : 'Не удалось отправить заявку');
+    }
+    if(!res.ok || !data || data.ok === false){
       throw new Error((data && data.error) || 'Не удалось отправить заявку');
     }
     form.style.display='none';
