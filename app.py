@@ -1,144 +1,157 @@
-from flask import Flask, request, jsonify, send_from_directory
-from pathlib import Path
-from datetime import datetime
-import sqlite3, csv
-from openpyxl import Workbook, load_workbook
+import os
+import random
+from flask import Flask, render_template, request, redirect
+from flask_sqlalchemy import SQLAlchemy
+from openpyxl import load_workbook
 
-BASE_DIR = Path(__file__).resolve().parent
-DATA_DIR = BASE_DIR / 'data'
-DATA_DIR.mkdir(exist_ok=True)
-DB_PATH = DATA_DIR / 'app.db'
-CSV_PATH = DATA_DIR / 'submissions.csv'
-XLSX_PATH = DATA_DIR / 'submissions.xlsx'
+# ---------- Настройки Flask и БД ----------
 
-app = Flask(__name__, static_folder='.', static_url_path='')
+app = Flask(__name__)
 
-CREATE_SQL = """
-CREATE TABLE IF NOT EXISTS visits (
-  id INTEGER PRIMARY KEY CHECK (id = 1),
-  total_views INTEGER NOT NULL DEFAULT 0,
-  updated_at TEXT
-);
-CREATE TABLE IF NOT EXISTS submissions (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  created_at TEXT NOT NULL,
-  name TEXT NOT NULL,
-  phone TEXT NOT NULL,
-  specialization TEXT,
-  district TEXT,
-  employment TEXT,
-  consent INTEGER NOT NULL,
-  ip_address TEXT,
-  user_agent TEXT
-);
-INSERT OR IGNORE INTO visits (id, total_views, updated_at) VALUES (1, 0, NULL);
-"""
-HEADERS = ['created_at','name','phone','specialization','district','employment','consent','ip_address','user_agent']
+# SQLite в файле data.db в корне проекта
+app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///data.db"
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+
+db = SQLAlchemy(app)
+
+# ---------- Модели ----------
 
 
-def get_db():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
+class Stats(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    visit_count = db.Column(db.Integer, nullable=False, default=0)
+    form_count = db.Column(db.Integer, nullable=False, default=0)
 
 
+class Submission(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(255), nullable=False)
+    phone = db.Column(db.String(50), nullable=False)
+    region = db.Column(db.String(255), nullable=False)
+    employment = db.Column(db.String(255), nullable=False)
+    skills = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, server_default=db.func.now())
+
+
+# ---------- Инициализация БД и стартовых значений ----------
+
+
+@app.before_first_request
 def init_db():
-    conn = get_db()
-    conn.executescript(CREATE_SQL)
-    conn.commit()
-    conn.close()
+    db.create_all()
+
+    stats = Stats.query.get(1)
+    if not stats:
+        # стартовые значения счетчиков
+        stats = Stats(id=1, visit_count=57112, form_count=2701)
+        db.session.add(stats)
+        db.session.commit()
 
 
-def append_csv(row):
-    write_header = not CSV_PATH.exists()
-    with CSV_PATH.open('a', newline='', encoding='utf-8-sig') as f:
-        writer = csv.DictWriter(f, fieldnames=HEADERS)
-        if write_header:
-            writer.writeheader()
-        writer.writerow(row)
+# ---------- Хелпер: дописать заявку в Excel ----------
 
 
-def append_xlsx(row):
-    if XLSX_PATH.exists():
-        wb = load_workbook(XLSX_PATH)
-        ws = wb.active
-    else:
-        wb = Workbook()
-        ws = wb.active
-        ws.title = 'Заявки'
-        ws.append(HEADERS)
-    ws.append([row[h] for h in HEADERS])
-    wb.save(XLSX_PATH)
+def append_to_excel(name, phone, region, employment, skills):
+    """
+    Дописывает новую строку в data/submissions.xlsx
+    Предполагаем:
+    - файл существует
+    - лист называется 'submissions'
+    - формат колонок: id, name, phone, region, employment, skills
+    """
+    data_dir = "data"
+    os.makedirs(data_dir, exist_ok=True)
+    path = os.path.join(data_dir, "submissions.xlsx")
+
+    if not os.path.exists(path):
+        # если вдруг файла нет, можно либо создать новый, либо ничего не делать
+        # здесь создадим минимальный файл такого же формата
+        from openpyxl import Workbook
+
+        wb_new = Workbook()
+        ws_new = wb_new.active
+        ws_new.title = "submissions"
+        ws_new.append(["id", "name", "phone", "region", "employment", "skills"])
+        wb_new.save(path)
+
+    wb = load_workbook(path)
+    ws = wb["submissions"]
+
+    # последняя занятая строка
+    last_row = ws.max_row
+    # предполагаем, что первая строка — шапка, значит текущий max id = last_row - 1
+    current_max_id = last_row - 1
+    new_id = current_max_id + 1
+
+    ws.append([new_id, name, phone, region, employment, skills])
+    wb.save(path)
 
 
-@app.route('/')
+# ---------- Маршруты ----------
+
+
+@app.route("/")
 def index():
-    return send_from_directory(BASE_DIR, 'povar.html')
+    stats = Stats.query.get(1)
+    if not stats:
+        stats = Stats(id=1, visit_count=57112, form_count=2701)
+        db.session.add(stats)
+        db.session.commit()
 
+    stats.visit_count += 1
+    db.session.commit()
 
-@app.post('/api/visit')
-def visit():
-    conn = get_db()
-    now = datetime.utcnow().isoformat()
-    conn.execute('UPDATE visits SET total_views = total_views + 1, updated_at = ? WHERE id = 1', (now,))
-    conn.commit()
-    total = conn.execute('SELECT total_views FROM visits WHERE id = 1').fetchone()['total_views']
-    conn.close()
-    return jsonify({'ok': True, 'total_views': total})
-
-
-@app.post('/api/submit')
-def submit():
-    data = request.get_json(silent=True) or {}
-    name = (data.get('name') or '').strip()
-    phone = (data.get('phone') or '').strip()
-    specialization = (data.get('specialization') or '').strip()
-    district = (data.get('district') or '').strip()
-    employment = (data.get('employment') or '').strip()
-    consent = bool(data.get('consent'))
-    if not name or not phone:
-        return jsonify({'ok': False, 'error': 'Имя и телефон обязательны'}), 400
-    if not consent:
-        return jsonify({'ok': False, 'error': 'Нужно согласие на обработку персональных данных'}), 400
-    created_at = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    row = {
-        'created_at': created_at,
-        'name': name,
-        'phone': phone,
-        'specialization': specialization,
-        'district': district,
-        'employment': employment,
-        'consent': 'Да',
-        'ip_address': request.headers.get('CF-Connecting-IP') or request.headers.get('X-Forwarded-For', request.remote_addr),
-        'user_agent': request.headers.get('User-Agent', '')[:500],
-    }
-    conn = get_db()
-    conn.execute(
-        'INSERT INTO submissions (created_at, name, phone, specialization, district, employment, consent, ip_address, user_agent) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-        (created_at, name, phone, specialization, district, employment, 1, row['ip_address'], row['user_agent'])
+    return render_template(
+        "index.html",
+        visit_count=stats.visit_count,
+        form_count=stats.form_count,
     )
-    conn.commit()
-    conn.close()
-    append_csv(row)
-    append_xlsx(row)
-    return jsonify({'ok': True})
 
 
-@app.get('/api/stats')
-def stats():
-    conn = get_db()
-    total_views = conn.execute('SELECT total_views FROM visits WHERE id = 1').fetchone()['total_views']
-    total_forms = conn.execute('SELECT COUNT(*) AS cnt FROM submissions').fetchone()['cnt']
-    latest = [dict(r) for r in conn.execute('SELECT created_at, name, phone, specialization, district, employment FROM submissions ORDER BY id DESC LIMIT 20').fetchall()]
-    conn.close()
-    return jsonify({'ok': True, 'total_views': total_views, 'total_forms': total_forms, 'latest': latest})
+@app.route("/submit", methods=["POST"])
+def submit():
+    # Подгони имена полей под свой шаблон
+    name = request.form.get("name", "").strip()
+    phone = request.form.get("phone", "").strip()
+    region = request.form.get("region", "").strip()
+    employment = request.form.get("employment", "").strip()
+    skills = request.form.get("skills", "").strip()
+
+    if not name or not phone:
+        # Можно добавить флеш-сообщения, пока просто возвращаем на главную
+        return redirect("/")
+
+    # 1) сохранить в БД
+    submission = Submission(
+        name=name,
+        phone=phone,
+        region=region,
+        employment=employment,
+        skills=skills,
+    )
+    db.session.add(submission)
+
+    stats = Stats.query.get(1)
+    if not stats:
+        stats = Stats(id=1, visit_count=57112, form_count=2701)
+        db.session.add(stats)
+
+    stats.form_count += 1
+
+    db.session.commit()
+
+    # 2) дописать в Excel поверх существующих 2701 строк
+    try:
+        append_to_excel(name, phone, region, employment, skills)
+    except Exception as e:
+        # чтобы падение Excel не ломало сайт; можно залогировать
+        print("Ошибка записи в Excel:", e)
+
+    return redirect("/")
 
 
-@app.get('/downloads/<path:filename>')
-def downloads(filename):
-    return send_from_directory(DATA_DIR, filename, as_attachment=True)
+# ---------- Локальный запуск ----------
 
-
-if __name__ == '__main__':
-    init_db()
-    app.run(host='0.0.0.0', port=8000, debug=False)
+if __name__ == "__main__":
+    # на Render этот блок не используется, там запускается gunicorn app:app
+    app.run(host="0.0.0.0", port=8000, debug=True)
