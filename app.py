@@ -5,8 +5,8 @@ app = Flask(__name__)
 
 class Stats:
     def __init__(self):
-        self.visit_count = 0
-        self.form_count = 0
+        self.visit_count = 57112
+        self.form_count = 2701
 
 stats = Stats()
 
